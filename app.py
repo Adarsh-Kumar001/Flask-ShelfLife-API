@@ -5,6 +5,8 @@ import cv2
 import numpy as np
 from io import BytesIO
 from PIL import Image
+from fastapi import FastAPI, File, UploadFile
+import uvicorn
 
 app = FastAPI()
 
@@ -17,6 +19,11 @@ shelf_life = {
     "fresh carrot": 20, "fresh cucumber": 7, "fresh mango": 7,
     "fresh orange": 20, "fresh potato": 60
 }
+
+
+@app.get("/")
+def home():
+    return {"message": "FastAPI is running!"}
 
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
@@ -46,3 +53,8 @@ async def predict(file: UploadFile = File(...)):
                 })
 
     return {"detections": detections, "warnings": warnings}
+    
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 10000))  # Use Render's assigned port
+    uvicorn.run(app, host="0.0.0.0", port=port)

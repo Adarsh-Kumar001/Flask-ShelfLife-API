@@ -69,10 +69,19 @@ def predict():
                     "message": message
                 })
 
+        # Delete the image after processing
+        os.remove(image_path)
+        print(f"Deleted {image_path} to save memory.")
+
         return jsonify({"detections": detections})
     except Exception as e:
         print(f"Error: {e}")  # Debug
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Ensure file is deleted even if an error occurs
+        if os.path.exists(image_path):
+            os.remove(image_path)
+            print(f"Deleted {image_path} due to error.")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

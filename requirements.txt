@@ -1,25 +1,4 @@
-<<<<<<< HEAD
-fastapi
-uvicorn
+Flask
 torch
-torchvision
+Pillow
 ultralytics
-pillow
-numpy
-pandas
-matplotlib
-python-multipart
-
-=======
-fastapi
-uvicorn
-torch
-torchvision
-ultralytics
-pillow
-numpy
-pandas
-matplotlib
-python-multipart
-
->>>>>>> 786a35981379849df863d6ef993f7e1667df23af

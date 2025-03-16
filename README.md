@@ -21,4 +21,7 @@ It predicts **whether a vegetable/fruit should be removed from the shelf** and p
 
 ---
 
+### Dataset
+
+[Link](https://universe.roboflow.com/id-card-53tam/shelf-life-prediction)
 

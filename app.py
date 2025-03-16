@@ -1,60 +1,78 @@
-from fastapi import FastAPI, File, UploadFile
-from ultralytics import YOLO
+from flask import Flask, request, jsonify
 import torch
-import cv2
-import numpy as np
-from io import BytesIO
 from PIL import Image
-from fastapi import FastAPI, File, UploadFile
-import uvicorn
+import os
+from ultralytics import YOLO
 
-app = FastAPI()
+app = Flask(__name__)
 
-# Load the trained model
-model = YOLO("best_yolov8_shelf_life.pt")  
+# Load YOLO model
+model_path = "best_yolov8_shelf_life.pt"
+model = YOLO(model_path)
 
-# Define shelf life for fresh items
-shelf_life = {
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Updated estimated shelf life in days for fresh vegetables/fruits
+SHELF_LIFE = {
     "fresh apple": 30, "fresh banana": 7, "fresh bellpepper": 10,
     "fresh carrot": 20, "fresh cucumber": 7, "fresh mango": 7,
     "fresh orange": 20, "fresh potato": 60
 }
 
+@app.route("/predict", methods=["POST"])
+def predict():
+    print("Incoming request...")
 
-@app.get("/")
-def home():
-    return {"message": "FastAPI is running!"}
+    # Check if 'file' is in request
+    if "file" not in request.files:
+        print("No 'file' key in request.files")  # Debug
+        return jsonify({"error": "No file part"}), 400
 
-@app.post("/predict/")
-async def predict(file: UploadFile = File(...)):
-    contents = await file.read()
-    image = Image.open(BytesIO(contents)).convert("RGB")
-    image_np = np.array(image)
+    file = request.files["file"]
+    
+    if file.filename == "":
+        print("Empty filename")  # Debug
+        return jsonify({"error": "No selected file"}), 400
 
-    # Run YOLO detection
-    results = model(image_np)
+    # Save the uploaded file
+    image_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(image_path)
+    print(f"File saved at {image_path}")
 
-    detections = []
-    warnings = []
+    try:
+        # Load image
+        image = Image.open(image_path)
 
-    for result in results:
-        for box in result.boxes:
-            class_id = int(box.cls[0])
-            confidence = float(box.conf[0]) * 100  # Convert to percentage
-            class_name = model.names[class_id]
+        # Perform inference
+        results = model(image)
 
-            if "rotten" in class_name.lower():
-                warnings.append(f"⚠ Remove {class_name} from the shelf!")
-            elif class_name in shelf_life:
+        # Parse results
+        detections = []
+        for result in results:
+            for box in result.boxes:
+                class_name = result.names[int(box.cls)]
+                confidence = float(box.conf)
+                bbox = box.xyxy.tolist()[0]
+
+                # Determine if rotten or fresh
+                if "rotten" in class_name:
+                    message = f"⚠️ Remove the {class_name.replace('rotten ', '')} from the shelf immediately!"
+                else:
+                    estimated_days = SHELF_LIFE.get(class_name, "Unknown")
+                    message = f"✅ Estimated shelf life: {estimated_days} days."
+
                 detections.append({
-                    "item": class_name,
-                    "confidence": round(confidence, 2),
-                    "shelf_life": shelf_life[class_name]
+                    "class": class_name,
+                    "confidence": confidence,
+                    "bbox": bbox,
+                    "message": message
                 })
 
-    return {"detections": detections, "warnings": warnings}
-    
+        return jsonify({"detections": detections})
+    except Exception as e:
+        print(f"Error: {e}")  # Debug
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 10000))  # Use Render's assigned port
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000, debug=True)

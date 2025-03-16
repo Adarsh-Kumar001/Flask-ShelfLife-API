@@ -2,4 +2,4 @@ flask
 torch
 ultralytics
 pillow
-uvicorn
+gunicorn
